@@ -114,3 +114,31 @@ resource "helm_release" "metrics_server" {
     value = "--kubelet-insecure-tls"
   }]
 }
+
+# Argo CD: la HERRAMIENTA es plataforma, asi que se instala aqui.
+#
+# Lo que Argo CD despliega -- la Application que apunta al repositorio -- NO va
+# en Terraform: vive en k8s/argocd/application.yaml y se aplica una vez para
+# arrancar el bucle. Esa separacion es la misma frontera de la Fase 5. Si la
+# Application viviera aqui, cambiar a que rama apunta seria un `terraform
+# apply`, y volveriamos a mezclar infraestructura con despliegue.
+resource "helm_release" "argocd" {
+  name             = "argocd"
+  repository       = "https://argoproj.github.io/argo-helm"
+  chart            = "argo-cd"
+  version          = var.argocd_version
+  namespace        = "argocd"
+  create_namespace = true
+
+  # server.insecure: el servidor sirve HTTP en vez de HTTPS con certificado
+  # autofirmado. Se accede por `kubectl port-forward`, es decir por un tunel
+  # local que nunca sale de la maquina, asi que el TLS aqui solo anadiria un
+  # aviso de certificado invalido en el navegador.
+  #
+  # En un cluster real esto NO se pone: alli el servidor esta detras de un
+  # Ingress con certificado de verdad, y el trafico si cruza una red.
+  set = [{
+    name  = "configs.params.server\\.insecure"
+    value = "true"
+  }]
+}

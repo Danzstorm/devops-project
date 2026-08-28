@@ -37,6 +37,12 @@ variable "host_port" {
   }
 }
 
+variable "argocd_version" {
+  description = "Version del chart de Argo CD. El chart 10.4.1 instala Argo CD v3.5.2."
+  type        = string
+  default     = "10.4.1"
+}
+
 variable "metrics_server_version" {
   description = "Version del chart de metrics-server. Fija, nunca la ultima."
   type        = string

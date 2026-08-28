@@ -30,3 +30,13 @@ configMapGenerator:
       - APP_NAME=linkshort
       - LOG_LEVEL=INFO
       - BASE_URL=http://localhost:8000
+
+# Los recursos generados van en la wave MAS TEMPRANA de todas.
+#
+# Al dar wave -1 a Postgres, este Secret y este ConfigMap -- que no tenian
+# anotacion, o sea wave 0 -- pasaron a crearse DESPUES, y los pods arrancaban
+# con "secret not found". Asignar una wave a unos recursos reordena
+# implicitamente todos los demas: la wave 0 no es "primero", es "en medio".
+generatorOptions:
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"

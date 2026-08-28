@@ -1,0 +1,52 @@
+# La Application: le dice a Argo CD qué observar y dónde ponerlo.
+#
+# Este archivo es el UNICO que se aplica a mano, y una sola vez:
+#
+#   kubectl apply -f k8s/argocd/application.yaml
+#
+# A partir de ahi nadie vuelve a ejecutar `kubectl apply -k`. Argo CD observa el
+# repositorio, lo compara con el cluster y corrige la diferencia. Es el mismo
+# bucle que Terraform aplica a la infraestructura, pero continuo: Terraform
+# reconcilia cuando alguien ejecuta `apply`; Argo CD reconcilia solo.
+#
+# Por que no vive en Terraform: cambiar a que rama o a que overlay apunta seria
+# un `terraform apply`, y volveriamos a mezclar infraestructura con despliegue.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: linkshort
+  namespace: argocd
+  finalizers:
+    # Sin este finalizer, borrar la Application deja en el cluster todos los
+    # recursos que creo, sin nadie que los gestione. Con el, `kubectl delete
+    # application linkshort` se lleva tambien lo desplegado.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Danzstorm/devops-project.git
+    targetRevision: main
+    # Argo CD detecta el kustomization.yaml y lo renderiza el mismo. No hay un
+    # paso de build previo ni un artefacto intermedio: la fuente de verdad es el
+    # repositorio, no la salida de un pipeline.
+    path: k8s/overlays/dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: linkshort
+
+  syncPolicy:
+    automated:
+      # prune: borrar del cluster lo que se borre del repositorio. Sin esto, un
+      # recurso eliminado del repo se queda vivo para siempre y el cluster
+      # acumula fantasmas que nadie recuerda haber creado.
+      prune: true
+      # selfHeal: revertir los cambios hechos a mano contra el cluster. Es lo
+      # que convierte el repositorio en la fuente de verdad de verdad, y no en
+      # una sugerencia. Un `kubectl edit` sobrevive minutos.
+      selfHeal: true
+    syncOptions:
+      # El namespace lo crea el propio Argo CD si no existe. Base lo declara
+      # igualmente para que `kubectl apply -k` siga funcionando sin Argo.
+      - CreateNamespace=true

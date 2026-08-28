@@ -5,22 +5,40 @@
 # replicas serian 2 procesos aplicando el mismo esquema a la vez. Alembic toma
 # un lock, asi que no corrompe nada, pero el segundo pod se queda esperando y
 # el despliegue se vuelve lento y confuso. Un Job es un actor unico y explicito.
-#
-# ponytail: el Job tiene nombre fijo y spec.template es INMUTABLE. Al desplegar
-# una imagen nueva, `kubectl apply` falla con "field is immutable" y hay que
-# borrarlo antes:
-#
-#   kubectl -n linkshort delete job linkshort-migrate --ignore-not-found
-#   kubectl apply -k k8s/overlays/dev
-#
-# Se deja asi porque en la Fase 6 el problema desaparece: Argo CD ejecuta las
-# migraciones como un hook PreSync, que genera un Job nuevo por sincronizacion.
-# Inventar ahora un generador de nombres seria construir a mano lo que la
-# herramienta de la fase siguiente ya trae.
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: linkshort-migrate
+  annotations:
+    # Fase 6: aqui se salda la deuda que dejo la Fase 4.
+    #
+    # hook: Sync -- y NO PreSync, que fue el primer intento y se quedo colgado:
+    #
+    #   Running: waiting for completion of hook batch/Job/linkshort-migrate
+    #
+    # PreSync se ejecuta antes de sincronizar NADA, incluido Postgres. La
+    # migracion esperaba una base de datos que la propia sincronizacion tenia
+    # bloqueada. Un abrazo mortal perfecto.
+    #
+    # Con hook Sync el Job participa en la fase de sincronizacion normal y
+    # respeta las sync-waves, asi que el orden se declara en vez de asumirse:
+    #
+    #   wave -1  Postgres
+    #   wave  0  esta migracion  <- Argo espera a que termine bien
+    #   wave  1  la API
+    #
+    # Y la garantia importante se mantiene: si la migracion falla, la
+    # sincronizacion se detiene y la version nueva de la app no llega a
+    # desplegarse. `kubectl apply -k` no daba eso -- alli el Job y el Deployment
+    # se creaban a la vez y el orden dependia de la suerte.
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/sync-wave: "0"
+    # BeforeHookCreation -> borra el Job anterior antes de crear el nuevo.
+    #
+    # Es exactamente el arreglo del "field is immutable" de la Fase 4: spec.template
+    # de un Job no se puede modificar, asi que al cambiar de imagen habia que
+    # borrarlo a mano. Argo CD lo hace por su cuenta en cada sincronizacion.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   # Se autodestruye 5 minutos despues de terminar. Sin esto, los Jobs completados
   # se acumulan en el namespace para siempre.

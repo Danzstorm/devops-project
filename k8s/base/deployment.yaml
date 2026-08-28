@@ -7,6 +7,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: linkshort
+  annotations:
+    # wave 1: la API se despliega DESPUES de que la migracion (wave 0) haya
+    # terminado bien. Si falla, esta version no llega a arrancar.
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   replicas: 2
   selector:
