@@ -24,8 +24,8 @@ el proyecto.
 | 4 | Kubernetes local (kind) | ✅ | [docs/04-kubernetes.md](docs/04-kubernetes.md) |
 | 5 | IaC (Terraform) | ✅ | [docs/05-iac.md](docs/05-iac.md) |
 | 6 | CD con GitOps (Argo CD) | ✅ | [docs/06-gitops.md](docs/06-gitops.md) |
-| 7 | Observabilidad (Prometheus + Grafana) | 🔨 siguiente | — |
-| 8 | Seguridad | ⏳ | — |
+| 7 | Observabilidad (Prometheus + Grafana) | ✅ | [docs/07-observabilidad.md](docs/07-observabilidad.md) |
+| 8 | Seguridad | 🔨 siguiente | — |
 | 9 | Nube (opcional) | ⏳ | — |
 
 ## Empezar

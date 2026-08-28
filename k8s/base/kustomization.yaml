@@ -14,6 +14,7 @@ resources:
   - deployment.yaml
   - service.yaml
   - migrate-job.yaml
+  - servicemonitor.yaml
 
 # configMapGenerator y no un ConfigMap suelto por una razon concreta: kustomize
 # le anade un sufijo con el hash del contenido (linkshort-config-7d2fk9...) y
