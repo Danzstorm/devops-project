@@ -105,20 +105,42 @@ provider "helm" {
   }
 }
 
-# Calico: el CNI que sustituye a kindnet.
+# Cilium: el CNI que sustituye a kindnet.
 #
 # Va antes que todo lo demas por una razon fisica: sin CNI, ningun pod obtiene
 # IP y todo se queda en Pending. Por eso el resto de complementos declaran
 # depends_on contra este recurso -- es de los pocos sitios donde la dependencia
 # no se deduce sola de las referencias.
-resource "helm_release" "calico" {
-  name             = "calico"
-  repository       = "https://docs.tigera.io/calico/charts"
-  chart            = "tigera-operator"
-  version          = var.calico_version
-  namespace        = "tigera-operator"
-  create_namespace = true
-  timeout          = 600
+#
+# Se eligio despues de que Calico fallara tres veces: su chart (tigera-operator)
+# declara recursos operator.tigera.io/v1 cuyos CRDs instala el propio chart, y
+# Helm no espera a que queden registrados:
+#
+#   no matches for kind "APIServer" in version "operator.tigera.io/v1"
+#
+# Es el problema clasico de un chart que mezcla CRDs con recursos que los usan,
+# y se arregla instalando en dos pasos. Cilium no lo tiene.
+resource "helm_release" "cilium" {
+  name       = "cilium"
+  repository = "https://helm.cilium.io"
+  chart      = "cilium"
+  version    = var.cilium_version
+  namespace  = "kube-system"
+  timeout    = 600
+
+  set = [
+    # En kind, kube-proxy ya esta puesto y funciona. Sustituirlo por eBPF es una
+    # optimizacion que aqui no compra nada y anade formas de fallar.
+    {
+      name  = "kubeProxyReplacement"
+      value = "false"
+    },
+    # kind no tiene proveedor de IPs: que las reparta el propio Kubernetes.
+    {
+      name  = "ipam.mode"
+      value = "kubernetes"
+    },
+  ]
 }
 
 # metrics-server: sin el, `kubectl top` no funciona y un HorizontalPodAutoscaler
@@ -143,7 +165,7 @@ resource "helm_release" "metrics_server" {
     value = "--kubelet-insecure-tls"
   }]
 
-  depends_on = [helm_release.calico]
+  depends_on = [helm_release.cilium]
 }
 
 # Argo CD: la HERRAMIENTA es plataforma, asi que se instala aqui.
@@ -172,7 +194,7 @@ resource "helm_release" "argocd" {
     name  = "configs.params.server\\.insecure"
     value = "true"
   }]
-  depends_on = [helm_release.calico]
+  depends_on = [helm_release.cilium]
 
 }
 
@@ -202,5 +224,5 @@ resource "helm_release" "kube_prometheus_stack" {
   # investiga por que.
   timeout = 600
 
-  depends_on = [helm_release.calico]
+  depends_on = [helm_release.cilium]
 }

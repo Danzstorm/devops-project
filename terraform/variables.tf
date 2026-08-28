@@ -37,10 +37,10 @@ variable "host_port" {
   }
 }
 
-variable "calico_version" {
-  description = "Version del chart tigera-operator (Calico). Sustituye a kindnet, que no aplica NetworkPolicy."
+variable "cilium_version" {
+  description = "Version del chart de Cilium. Sustituye a kindnet, que acepta NetworkPolicy sin aplicarla."
   type        = string
-  default     = "v3.32.1"
+  default     = "1.20.1"
 }
 
 variable "argocd_version" {
