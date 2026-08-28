@@ -43,3 +43,13 @@ secretGenerator:
       - POSTGRES_PASSWORD=devpassword
       - POSTGRES_DB=linkshort
       - DATABASE_URL=postgresql+psycopg://linkshort:devpassword@postgres:5432/linkshort
+
+# Los recursos generados van en la wave MAS TEMPRANA de todas.
+#
+# Al dar wave -1 a Postgres, este Secret y este ConfigMap -- que no tenian
+# anotacion, o sea wave 0 -- pasaron a crearse DESPUES, y los pods arrancaban
+# con "secret not found". Asignar una wave a unos recursos reordena
+# implicitamente todos los demas: la wave 0 no es "primero", es "en medio".
+generatorOptions:
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
