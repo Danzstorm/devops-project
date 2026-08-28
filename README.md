@@ -23,8 +23,8 @@ el proyecto.
 | 3 | CI (GitHub Actions) | ✅ | [docs/03-ci.md](docs/03-ci.md) |
 | 4 | Kubernetes local (kind) | ✅ | [docs/04-kubernetes.md](docs/04-kubernetes.md) |
 | 5 | IaC (Terraform) | ✅ | [docs/05-iac.md](docs/05-iac.md) |
-| 6 | CD con GitOps (Argo CD) | 🔨 siguiente | — |
-| 7 | Observabilidad (Prometheus + Grafana) | ⏳ | — |
+| 6 | CD con GitOps (Argo CD) | ✅ | [docs/06-gitops.md](docs/06-gitops.md) |
+| 7 | Observabilidad (Prometheus + Grafana) | 🔨 siguiente | — |
 | 8 | Seguridad | ⏳ | — |
 | 9 | Nube (opcional) | ⏳ | — |
 
@@ -49,7 +49,7 @@ O en un cluster de Kubernetes de verdad, creado con Terraform:
 ```powershell
 terraform -chdir=terraform init
 terraform -chdir=terraform apply           # cluster + complementos
-kubectl apply -k k8s/overlays/dev          # http://localhost:8000/docs
+kubectl apply -f k8s/argocd/application.yaml   # Argo CD despliega y mantiene la app
 terraform -chdir=terraform destroy         # se lo lleva todo
 ```
 
