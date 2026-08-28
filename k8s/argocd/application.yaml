@@ -16,6 +16,11 @@ kind: Application
 metadata:
   name: linkshort
   namespace: argocd
+  finalizers:
+    # Sin este finalizer, borrar la Application deja en el cluster todos los
+    # recursos que creo, sin nadie que los gestione. Con el, `kubectl delete
+    # application linkshort` se lleva tambien lo desplegado.
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
 
