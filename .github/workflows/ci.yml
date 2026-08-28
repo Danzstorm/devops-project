@@ -258,14 +258,15 @@ jobs:
       - name: Firmar la imagen
         if: github.event_name == 'push'
         run: |
-          digest=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}:sha-$(git rev-parse --short HEAD) 2>/dev/null || true)
-          if [ -z "$digest" ]; then
-            digest=$(docker buildx imagetools inspect ghcr.io/${{ github.repository }}:latest --format '{{json .Manifest.Digest}}' | tr -d '"')
-            digest="ghcr.io/${{ github.repository }}@${digest}"
-          fi
-          echo "firmando $digest"
+          set -euo pipefail
+          # El primer tag que calculo metadata-action. Se usa ESA salida y no
+          # github.repository porque metadata-action ya normaliza el nombre a
+          # minusculas, y GHCR las exige: "Danzstorm/devops-project" es un
+          # nombre invalido de repositorio de imagenes.
+          tag=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
+          repo=${tag%%:*}
+          digest=$(docker buildx imagetools inspect "$tag" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "firmando ${repo}@${digest}"
           # Se firma por DIGEST, nunca por tag: un tag se puede reapuntar a otra
           # imagen y la firma dejaria de significar nada.
-          cosign sign --yes "$digest"
-        env:
-          COSIGN_EXPERIMENTAL: "1"
+          cosign sign --yes "${repo}@${digest}"
