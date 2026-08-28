@@ -12,12 +12,27 @@ metadata:
   annotations:
     # Fase 6: aqui se salda la deuda que dejo la Fase 4.
     #
-    # PreSync -> Argo CD ejecuta este Job ANTES de sincronizar el resto, y espera
-    # a que termine bien. Si la migracion falla, la sincronizacion se detiene y
-    # la version nueva de la app no llega a desplegarse. Eso es una garantia que
-    # `kubectl apply -k` no daba: alli el Job y el Deployment se creaban a la vez
-    # y el orden dependia de la suerte.
-    argocd.argoproj.io/hook: PreSync
+    # hook: Sync -- y NO PreSync, que fue el primer intento y se quedo colgado:
+    #
+    #   Running: waiting for completion of hook batch/Job/linkshort-migrate
+    #
+    # PreSync se ejecuta antes de sincronizar NADA, incluido Postgres. La
+    # migracion esperaba una base de datos que la propia sincronizacion tenia
+    # bloqueada. Un abrazo mortal perfecto.
+    #
+    # Con hook Sync el Job participa en la fase de sincronizacion normal y
+    # respeta las sync-waves, asi que el orden se declara en vez de asumirse:
+    #
+    #   wave -1  Postgres
+    #   wave  0  esta migracion  <- Argo espera a que termine bien
+    #   wave  1  la API
+    #
+    # Y la garantia importante se mantiene: si la migracion falla, la
+    # sincronizacion se detiene y la version nueva de la app no llega a
+    # desplegarse. `kubectl apply -k` no daba eso -- alli el Job y el Deployment
+    # se creaban a la vez y el orden dependia de la suerte.
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/sync-wave: "0"
     # BeforeHookCreation -> borra el Job anterior antes de crear el nuevo.
     #
     # Es exactamente el arreglo del "field is immutable" de la Fase 4: spec.template
