@@ -16,8 +16,8 @@ el proyecto.
 | # | Fase | Estado | Doc |
 |---|------|--------|-----|
 | 0 | Setup y fundamentos | ✅ | [docs/00-setup.md](docs/00-setup.md) |
-| 1 | La aplicación (FastAPI + Postgres) | 🔨 siguiente | — |
-| 2 | Contenedores (Docker) | ⏳ | — |
+| 1 | La aplicación (FastAPI + Postgres) | ✅ | [docs/01-app.md](docs/01-app.md) |
+| 2 | Contenedores (Docker) | 🔨 siguiente | — |
 | 3 | CI (GitHub Actions) | ⏳ | — |
 | 4 | Kubernetes local (kind) | ⏳ | — |
 | 5 | IaC (Terraform) | ⏳ | — |
@@ -30,6 +30,9 @@ el proyecto.
 
 ```powershell
 .\scripts\preflight.ps1     # verifica que tengas todas las herramientas
+uv sync                     # instala dependencias exactas desde uv.lock
+uv run pytest               # 8 tests
+uv run uvicorn app.main:app # http://localhost:8000/docs
 ```
 
 ## Reglas del proyecto
