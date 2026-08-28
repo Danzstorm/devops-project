@@ -1,0 +1,45 @@
+# Overlay de desarrollo: base + lo que solo tiene sentido en local.
+#
+#   kubectl apply -k k8s/overlays/dev
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: linkshort
+
+resources:
+  - ../../base
+  - postgres.yaml
+
+patches:
+  - path: service-nodeport.yaml
+
+# El tag se fija AQUI, no en base. Es el mismo tag inmutable que publica el CI
+# (sha-xxxxxxx), y actualizarlo es exactamente lo que hara Argo CD en la Fase 6:
+#
+#   kubectl kustomize edit set image ghcr.io/danzstorm/devops-project=*:sha-abc1234
+images:
+  - name: ghcr.io/danzstorm/devops-project
+    newTag: sha-4fe559d
+
+# La contrasena de desarrollo, en git y a la vista. Que conste que es una
+# decision, no un descuido:
+#
+# 1. Un Secret de Kubernetes NO esta cifrado. Es base64, que es codificacion,
+#    no criptografia: `kubectl get secret -o yaml | base64 -d` lo lee cualquiera
+#    con permisos de lectura sobre el namespace. Lo unico que aporta frente a un
+#    ConfigMap es que no sale por accidente en un `describe` y que RBAC lo trata
+#    aparte.
+# 2. Por eso un Secret escrito a mano en git seria un secreto en git, con un
+#    paso extra de ofuscacion que solo sirve para dormir mejor sin motivo.
+# 3. `devpassword` esta aqui para que cante si aparece fuera de local, igual que
+#    en docker-compose.yml.
+#
+# Los secretos de verdad llegan en la Fase 8 (Sealed Secrets o External
+# Secrets): lo que se commitea es un cifrado que solo el cluster puede abrir.
+secretGenerator:
+  - name: linkshort-db
+    literals:
+      - POSTGRES_USER=linkshort
+      - POSTGRES_PASSWORD=devpassword
+      - POSTGRES_DB=linkshort
+      - DATABASE_URL=postgresql+psycopg://linkshort:devpassword@postgres:5432/linkshort

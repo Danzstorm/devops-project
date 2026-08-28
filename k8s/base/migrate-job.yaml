@@ -1,0 +1,67 @@
+# Migraciones como Job: el equivalente exacto del servicio `migrate` de
+# docker-compose. Misma imagen, otro comando, un solo uso.
+#
+# Por que NO va dentro del arranque de la app (ni como initContainer): con 2
+# replicas serian 2 procesos aplicando el mismo esquema a la vez. Alembic toma
+# un lock, asi que no corrompe nada, pero el segundo pod se queda esperando y
+# el despliegue se vuelve lento y confuso. Un Job es un actor unico y explicito.
+#
+# ponytail: el Job tiene nombre fijo y spec.template es INMUTABLE. Al desplegar
+# una imagen nueva, `kubectl apply` falla con "field is immutable" y hay que
+# borrarlo antes:
+#
+#   kubectl -n linkshort delete job linkshort-migrate --ignore-not-found
+#   kubectl apply -k k8s/overlays/dev
+#
+# Se deja asi porque en la Fase 6 el problema desaparece: Argo CD ejecuta las
+# migraciones como un hook PreSync, que genera un Job nuevo por sincronizacion.
+# Inventar ahora un generador de nombres seria construir a mano lo que la
+# herramienta de la fase siguiente ya trae.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: linkshort-migrate
+spec:
+  # Se autodestruye 5 minutos despues de terminar. Sin esto, los Jobs completados
+  # se acumulan en el namespace para siempre.
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 6
+  template:
+    spec:
+      # OnFailure + backoffLimit es lo que sustituye al `depends_on:
+      # service_healthy` de Compose. Kubernetes no tiene orden de arranque: si
+      # Postgres todavia no acepta conexiones, el Job falla, espera y reintenta
+      # con backoff exponencial. Un initContainer con un bucle de `pg_isready`
+      # haria lo mismo con mas YAML.
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: alembic
+          image: ghcr.io/danzstorm/devops-project
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - secretRef:
+                name: linkshort-db
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}

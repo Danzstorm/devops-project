@@ -1,0 +1,19 @@
+# Parche estrategico: solo lo que cambia respecto a base.
+#
+# No se copia el Service entero. kustomize localiza el objeto por nombre y funde
+# estos campos encima. Si manana base cambia el puerto o las labels, este parche
+# sigue siendo valido porque no habla de eso.
+#
+# El 30080 tiene que coincidir con el extraPortMapping de k8s/kind-cluster.yaml:
+# ese mapeo es lo que hace que http://localhost:8000 llegue hasta aqui.
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkshort
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30080

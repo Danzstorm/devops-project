@@ -1,0 +1,93 @@
+# Postgres para desarrollo, y SOLO para desarrollo.
+#
+# Vive en el overlay de dev, no en base, y eso es deliberado: en produccion la
+# base de datos no es un pod. Es un servicio gestionado (RDS, Cloud SQL) con
+# backups, failover y actualizaciones que alguien mas opera. Correr tu propia
+# base de datos en Kubernetes es un proyecto en si mismo, no un YAML.
+#
+# Lo unico que se busca aqui es que `kind` levante algo contra lo que hablar.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  # Recreate y no RollingUpdate: el PVC es ReadWriteOnce, o sea que solo un pod
+  # puede montarlo. Con RollingUpdate el pod nuevo se quedaria esperando para
+  # siempre un volumen que el viejo no suelta, y el despliegue se cuelga sin
+  # error claro.
+  #
+  # Y por eso no es un StatefulSet: con una sola replica, un StatefulSet solo
+  # anadiria identidad de red estable y arranque ordenado, que aqui no hacen
+  # falta. La complejidad se paga cuando compra algo.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+    spec:
+      # Sin runAsNonRoot, al contrario que la API. La imagen oficial de Postgres
+      # arranca como root para poder crear y dar permisos al directorio de datos,
+      # y despues baja a el usuario `postgres` ella sola. Forzar runAsNonRoot
+      # aqui rompe su entrypoint.
+      #
+      # Se acepta porque esto no llega a produccion. Si llegara, la respuesta
+      # correcta no seria pelearse con el securityContext: seria no correr la
+      # base de datos uno mismo.
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: linkshort-db
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              # subPath para que los datos vivan en un subdirectorio del volumen.
+              # Postgres se niega a inicializar sobre un directorio que no este
+              # vacio, y muchos volumenes traen un lost+found de serie.
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "linkshort", "-d", "linkshort"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - port: 5432
+      targetPort: postgres

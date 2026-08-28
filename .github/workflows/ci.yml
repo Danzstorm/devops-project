@@ -69,6 +69,13 @@ jobs:
       - name: Tests
         run: uv run pytest
 
+      # Renderizar el overlay no despliega nada, pero falla si el YAML esta roto,
+      # si un parche apunta a un recurso que no existe o si una referencia se
+      # quedo colgada. Son los errores que si no, se descubren con el cluster
+      # delante. kubectl viene preinstalado en el runner.
+      - name: Validar manifiestos de Kubernetes
+        run: kubectl kustomize k8s/overlays/dev > /dev/null
+
   # ===========================================================================
   # imagen - build, escaneo, prueba end-to-end y publicacion
   # ===========================================================================

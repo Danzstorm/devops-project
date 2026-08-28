@@ -1,0 +1,104 @@
+# La API.
+#
+# Aqui es donde /health y /ready dejan de ser dos endpoints parecidos y pasan a
+# tener consecuencias distintas: uno reinicia contenedores, el otro solo los
+# saca del balanceador.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkshort
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: linkshort
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # maxUnavailable: 0 -> nunca se baja de la capacidad actual durante un
+      # despliegue: primero entra el pod nuevo y pasa su readiness, y solo
+      # entonces se retira uno viejo. Con maxUnavailable: 1 habria un instante
+      # con la mitad de la capacidad, que en un pico es justo cuando duele.
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: linkshort
+    spec:
+      # El securityContext que la Fase 2 dejo pendiente por no tener donde
+      # declararlo. El Dockerfile ya creaba el usuario 10001; esto es lo que
+      # obliga a usarlo y lo que el cluster puede VERIFICAR.
+      securityContext:
+        runAsNonRoot: true # el kubelet rechaza el pod si la imagen corre como root
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault # filtra las syscalls que casi ninguna app necesita
+      containers:
+        - name: api
+          # El tag lo fija cada overlay (kustomize `images:`). En base no se pone
+          # una version concreta a proposito: base describe la forma, no el que.
+          image: ghcr.io/danzstorm/devops-project
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: linkshort-config
+            - secretRef:
+                name: linkshort-db
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # readOnlyRootFilesystem: true no deja escribir en NINGUN sitio, y
+            # hay librerias que dan por hecho que /tmp existe y es escribible.
+            # Un emptyDir cuesta nada y evita descubrirlo en produccion.
+            - name: tmp
+              mountPath: /tmp
+
+          # --- Sondas -------------------------------------------------------
+          # liveness -> /health, que NO toca la base. Fallar aqui REINICIA el
+          # contenedor. Si apuntara a /ready, una caida de Postgres reiniciaria
+          # todos los pods en bucle y convertiria una degradacion en una caida.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          # readiness -> /ready, que SI consulta la base. Fallar aqui solo saca
+          # el pod del Service. Cuando Postgres vuelva, el pod vuelve solo.
+          # periodSeconds mas corto que en liveness: quitar trafico de un pod
+          # que no puede servirlo es urgente; matarlo, no.
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
+
+          resources:
+            # requests: lo que el scheduler reserva. Es lo que decide en que
+            # nodo cabe el pod, y sin ellas el scheduler asume 0 y sobrecarga.
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            # limits: solo memoria. Superar el limite de memoria mata el
+            # contenedor (OOMKill), que es lo correcto para una fuga.
+            #
+            # NO hay limite de CPU a proposito: la CPU es comprimible, y un
+            # limit no evita nada -- solo hace que el kernel estrangule el
+            # proceso (throttling) aunque el nodo este ocioso. El resultado
+            # tipico es latencia p99 horrible sin ninguna alerta que lo explique.
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}
