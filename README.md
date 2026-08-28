@@ -15,8 +15,8 @@ el proyecto.
 
 | # | Fase | Estado | Doc |
 |---|------|--------|-----|
-| 0 | Setup y fundamentos | 🔨 en curso | [docs/00-setup.md](docs/00-setup.md) |
-| 1 | La aplicación (FastAPI + Postgres) | ⏳ | — |
+| 0 | Setup y fundamentos | ✅ | [docs/00-setup.md](docs/00-setup.md) |
+| 1 | La aplicación (FastAPI + Postgres) | 🔨 siguiente | — |
 | 2 | Contenedores (Docker) | ⏳ | — |
 | 3 | CI (GitHub Actions) | ⏳ | — |
 | 4 | Kubernetes local (kind) | ⏳ | — |
