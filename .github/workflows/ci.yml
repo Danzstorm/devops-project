@@ -43,8 +43,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # astral-sh/setup-uv no publica tag mayor flotante (@v10 no existe), asi
+      # que aqui va la version exacta. Es lo que hacen el resto de actions con
+      # su @vN, solo que sin el alias que lo hace comodo.
       - name: Instalar uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           # Version fija, igual que en el Dockerfile: el CI tiene que usar las
           # mismas herramientas que la imagen que publica.
