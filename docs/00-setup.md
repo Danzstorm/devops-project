@@ -180,10 +180,35 @@ Se arregló añadiendo sus carpetas al PATH de usuario. Los binarios están en:
 %LOCALAPPDATA%\Microsoft\WinGet\Packages\jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe\
 ```
 
-> **Nota importante sobre el PATH:** un cambio en el PATH **no afecta a las terminales ya
-> abiertas**. Los procesos heredan las variables de entorno al arrancar. Si acabas de
-> instalar algo y "no lo encuentra", cierra la terminal y abre una nueva antes de
-> sospechar de nada más.
+### Y el corolario: la terminal seguía sin verlos
+
+Con el PATH ya corregido en el registro, el preflight **seguía diciendo que faltaban**
+`kind`, `helm`, `terraform` y `jq`. No era un fallo de la instalación: era la terminal.
+
+Windows lee el PATH del registro **una sola vez, cuando arranca el proceso**. Una terminal
+abierta antes de la instalación sigue viendo el PATH viejo para siempre. Y el detalle que
+despista de verdad: **abrir una pestaña nueva no siempre arregla nada**, porque esa
+pestaña hereda el entorno de su proceso padre —Windows Terminal o VS Code— que también es
+viejo. Hay que cerrar la aplicación entera, no la pestaña.
+
+En vez de dejar esa trampa puesta, el preflight ahora **relee el PATH del registro** antes
+de comprobar nada:
+
+```powershell
+$env:PATH = @(
+    [System.Environment]::GetEnvironmentVariable('PATH', 'Machine')
+    [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+) -join ';'
+```
+
+Así el script informa del estado real de la máquina, no del estado de tu sesión — que es
+justo lo que se le pide a una herramienta de diagnóstico. Y como `$env:` vive en el
+proceso, tu terminal queda arreglada de paso mientras siga abierta.
+
+> **La lección general:** una herramienta de verificación que puede mentirte por culpa del
+> entorno desde el que la ejecutas es peor que no tenerla, porque te hace desconfiar de lo
+> que sí está bien. Este mismo principio reaparece en la Fase 3: la CI corre en un runner
+> limpio precisamente para que ningún estado local pueda falsear el resultado.
 
 Este tropiezo, por cierto, es exactamente el argumento a favor de los contenedores: en la
 Fase 2 dejamos de depender de qué hay instalado en la máquina y de cómo está su PATH.

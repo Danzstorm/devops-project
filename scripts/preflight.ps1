@@ -11,6 +11,18 @@
     .\scripts\preflight.ps1
 #>
 
+# Windows solo lee el PATH del registro cuando ARRANCA un proceso. Si acabas de
+# instalar algo con winget, esta terminal sigue viendo el PATH viejo -- y abrir una
+# pestana nueva no siempre ayuda, porque hereda del proceso padre (Windows Terminal
+# o VS Code), que tambien es viejo.
+# Releerlo aqui hace que el preflight informe del estado REAL de la maquina, no del
+# de tu sesion. Como $env: es del proceso, tu terminal queda arreglada de paso.
+$pathAntes = $env:PATH
+$env:PATH = @(
+    [System.Environment]::GetEnvironmentVariable('PATH', 'Machine')
+    [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+) -join ';'
+
 $tools = [ordered]@{
     'git'       = @{ Args = @('--version');                   Why = 'control de versiones' }
     'uv'        = @{ Args = @('--version');                   Why = 'gestor de Python: entornos, deps y ejecucion' }
@@ -66,6 +78,9 @@ if ($missing.Count -gt 0) {
     exit 1
 }
 
+if ($pathAntes -ne $env:PATH) {
+    Write-Host "  (PATH recargado desde el registro: tu terminal estaba desactualizada)" -ForegroundColor DarkGray
+}
 Write-Host "  Todo listo." -ForegroundColor Green
 Write-Host ""
 exit 0
