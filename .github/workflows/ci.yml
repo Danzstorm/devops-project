@@ -105,6 +105,10 @@ jobs:
         with:
           context: .
           load: true
+          # Sin esto, la capa FROM se sirve de la cache indefinidamente: el
+          # escaneo saldria verde durante meses sobre una imagen base vieja,
+          # que es justo la vulnerabilidad que se pretende detectar.
+          pull: true
           tags: |
             ${{ steps.meta.outputs.tags }}
             linkshort:ci
