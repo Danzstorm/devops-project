@@ -76,7 +76,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(http_requests_total{job=\"linkshort\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_requests_total{job=\"linkshort\"}[5m])), 0.001)",
+          "expr": "(sum(rate(http_requests_total{job=\"linkshort\",status=~\"5..\"}[5m])) or vector(0)) / clamp_min(sum(rate(http_requests_total{job=\"linkshort\"}[5m])), 0.001)",
           "refId": "A"
         }
       ]
