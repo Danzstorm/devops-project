@@ -54,14 +54,14 @@ funcionamiento no es un control, es una intención**. La forma de comprobarlo es
 misma —intentar hacer lo que debería estar prohibido— y casi nunca se hace, porque el recurso
 "ya está creado".
 
-### El arreglo
+### El arreglo, y tres intentos fallidos por el camino
 
-Fuera kindnet, dentro Calico:
+Fuera kindnet, dentro un CNI que sí aplique políticas:
 
 ```hcl
 kind_config {
   networking {
-    disable_default_cni = true
+    disable_default_cni = true    # fuera kindnet
   }
 }
 ```
@@ -75,11 +75,28 @@ Plan: 5 to add, 0 to change, 1 to destroy.
 
 El CNI no se cambia en caliente: hay que recrear el cluster. Es exactamente el caso de "leer
 el plan antes de aplicar" de la Fase 5, y el momento donde GitOps demuestra que vale: se
-destruye el cluster entero y Argo CD vuelve a desplegar la aplicación sola, sin que nadie
-recuerde qué había.
+destruyó el cluster entero y **Argo CD volvió a desplegar la aplicación solo**, sin que nadie
+recordara qué había.
 
-Y como Calico tiene que existir antes que cualquier otro pod —sin CNI nadie obtiene IP—, es
-uno de los pocos sitios donde `depends_on` es imprescindible: la dependencia no se deduce de
+La primera elección fue Calico, y falló tres veces seguidas:
+
+```
+unable to build kubernetes objects from release manifest:
+no matches for kind "APIServer" in version "operator.tigera.io/v1"
+```
+
+Su chart (`tigera-operator`) declara recursos `operator.tigera.io/v1` cuyos CRDs **instala el
+propio chart**, y Helm no espera a que queden registrados antes de aplicar los recursos que
+los usan. Es el problema clásico de un chart que mezcla CRDs con sus consumidores; se arregla
+instalando en dos pasos, pero eso significa dos `helm_release` y un `depends_on` extra para
+algo que no es el objetivo de la fase.
+
+**Cilium** no tiene ese problema y se instaló en 24 segundos. La decisión aquí no es "Cilium
+es mejor que Calico": es que cuando una herramienta pelea por razones ajenas al problema que
+resuelves, la salida barata suele ser cambiar de herramienta, no domarla.
+
+Y como el CNI tiene que existir antes que cualquier otro pod —sin él nadie obtiene IP—, es uno
+de los pocos sitios donde `depends_on` es imprescindible: la dependencia no se deduce de
 ninguna referencia.
 
 ---
@@ -224,21 +241,41 @@ Lo que sí está resuelto hoy es lo que hacía falta: que **no se cuele un secre
 Que Calico está y kindnet no:
 
 ```powershell
-kubectl get daemonset -A | Select-String -Pattern "calico|kindnet"
+kubectl get daemonset -A | Select-String -Pattern "cilium|kindnet"
 ```
 
-Que las políticas **de verdad** bloquean — la prueba que antes fallaba en silencio:
+Que las políticas **de verdad** bloquean. La prueba necesita las dos mitades, porque un
+"no conecta" a secas también lo produce un pod roto:
 
 ```powershell
-kubectl -n linkshort run intruso --rm -it --image=postgres:17-alpine --restart=Never -- `
-  psql "postgresql://linkshort:devpassword@postgres:5432/linkshort" -c "select 1"
-# debe quedarse colgado hasta el timeout: el pod no lleva las labels permitidas
+# 1. Sin las labels permitidas -> debe quedarse colgado
+kubectl -n linkshort run intruso --restart=Never --image=postgres:17-alpine --command -- `
+  sh -c 'timeout 20 psql "postgresql://linkshort:devpassword@postgres:5432/linkshort" -c "select 1"; echo EXIT=$?'
+
+# 2. El MISMO pod, con la label permitida -> debe conectar
+kubectl -n linkshort run permitido --restart=Never --image=postgres:17-alpine `
+  --labels="app.kubernetes.io/name=linkshort" --command -- `
+  sh -c 'timeout 20 psql "postgresql://linkshort:devpassword@postgres:5432/linkshort" -c "select 1"; echo EXIT=$?'
 ```
 
-Que la aplicación sigue funcionando (la API sí está permitida):
+Resultado real:
+
+| | resultado |
+|---|---|
+| sin label permitida | `EXIT=143` — colgado hasta que el timeout lo mató |
+| con label permitida | `EXIT=0`, `select 1` devuelve `1` |
+
+Misma imagen, mismo comando, mismo namespace. La única diferencia es una label. **Con kindnet,
+los dos conectaban.**
+
+Ese segundo caso es lo que convierte la prueba en prueba: sin él, un `EXIT=143` podría
+significar simplemente que el pod no arranca.
+
+Y la aplicación sigue funcionando, porque sí está permitida:
 
 ```powershell
 curl.exe http://localhost:8000/ready
+# {"status":"ok"}
 ```
 
 La imagen, sin `pip`:
