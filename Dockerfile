@@ -42,6 +42,24 @@ COPY alembic.ini ./
 # =============================================================================
 FROM python:3.12-slim AS runtime
 
+# Parches de seguridad del sistema base.
+#
+# Las imagenes oficiales se reconstruyen cada cierto tiempo, no cada vez que
+# Debian publica un parche, asi que casi siempre van por detras de su propio
+# repositorio. Sin esta linea, la imagen se publico con openssl 3.5.6 mientras
+# Debian ya ofrecia 3.5.7 con la CVE-2026-14456 corregida, y Trivy tumbo el
+# build -- correctamente.
+#
+# El precio: el build deja de ser identico bit a bit en el tiempo. La misma
+# Dockerfile manana produce otra imagen. Se asume a proposito, porque lo que se
+# despliega es un tag por commit (sha-xxxxxxx) que SI es inmutable: la
+# reproducibilidad que importa es "este tag es siempre esta imagen", no "este
+# Dockerfile es siempre la misma imagen". Fijar versiones exactas de apt daria
+# lo segundo a cambio de romper el build cada vez que Debian publica algo.
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+
 # Usuario sin privilegios. Por defecto un contenedor corre como root, y root
 # dentro del contenedor es (salvo user namespaces) root en el kernel del host:
 # una escapada del contenedor te deja con root en la maquina. Ademas, si un

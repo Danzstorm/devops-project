@@ -1,5 +1,7 @@
 # devops-project — `linkshort`
 
+[![CI](https://github.com/Danzstorm/devops-project/actions/workflows/ci.yml/badge.svg)](https://github.com/Danzstorm/devops-project/actions/workflows/ci.yml)
+
 Proyecto de aprendizaje **DevOps end-to-end**. La aplicación (un acortador de URLs) es
 pequeña a propósito: lo que se está aprendiendo no es la app, es **todo lo que hay
 alrededor** para llevarla desde tu editor hasta un cluster, de forma repetible, segura y
@@ -18,8 +20,8 @@ el proyecto.
 | 0 | Setup y fundamentos | ✅ | [docs/00-setup.md](docs/00-setup.md) |
 | 1 | La aplicación (FastAPI + Postgres) | ✅ | [docs/01-app.md](docs/01-app.md) |
 | 2 | Contenedores (Docker) | ✅ | [docs/02-contenedores.md](docs/02-contenedores.md) |
-| 3 | CI (GitHub Actions) | 🔨 siguiente | — |
-| 4 | Kubernetes local (kind) | ⏳ | — |
+| 3 | CI (GitHub Actions) | ✅ | [docs/03-ci.md](docs/03-ci.md) |
+| 4 | Kubernetes local (kind) | 🔨 siguiente | — |
 | 5 | IaC (Terraform) | ⏳ | — |
 | 6 | CD con GitOps (Argo CD) | ⏳ | — |
 | 7 | Observabilidad (Prometheus + Grafana) | ⏳ | — |

@@ -46,6 +46,10 @@ services:
   # Job de Kubernetes que montaremos en la Fase 4: misma imagen, otro comando.
   migrate:
     build: .
+    # Nombrar la imagen permite reutilizar una ya construida: en CI se pasa
+    # IMAGE=<la imagen recien construida> junto a `--no-build` y Compose no
+    # vuelve a compilar. Se prueba EXACTAMENTE el artefacto que se publicara.
+    image: ${IMAGE:-linkshort:dev}
     command: ["alembic", "upgrade", "head"]
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-linkshort}:${POSTGRES_PASSWORD:-devpassword}@db:5432/${POSTGRES_DB:-linkshort}
@@ -59,6 +63,7 @@ services:
   # ---------------------------------------------------------------------------
   api:
     build: .
+    image: ${IMAGE:-linkshort:dev}
     ports:
       - "8000:8000"
     environment:
