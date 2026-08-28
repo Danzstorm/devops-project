@@ -285,13 +285,38 @@ docker run --rm ghcr.io/danzstorm/devops-project:latest pip --version
 # executable file not found
 ```
 
-Y la firma, desde cualquier máquina:
+Y la firma, desde cualquier máquina y sin credenciales:
 
 ```powershell
-cosign verify ghcr.io/danzstorm/devops-project@sha256:... `
+$digest = docker buildx imagetools inspect ghcr.io/danzstorm/devops-project:latest --format '{{json .Manifest.Digest}}'
+docker run --rm ghcr.io/sigstore/cosign/cosign:v3.0.2 verify `
+  "ghcr.io/danzstorm/devops-project@$digest" `
   --certificate-identity-regexp "https://github.com/Danzstorm/devops-project/.*" `
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
+
+```
+The cosign claims were validated
+Existence of the claims in the transparency log was verified offline
+The code-signing certificate was verified using trusted certificate authority certificates
+```
+
+### El susto final: "no signatures found" sobre una imagen bien firmada
+
+El primer intento de verificación, con `cosign v2.4.1`, dijo:
+
+```
+Error: no signatures found
+```
+
+La firma estaba bien y el CI la había subido. **cosign v3 cambió dónde la guarda**: en lugar
+de publicar un tag `sha256-<digest>.sig` junto a la imagen, la adjunta como *referrer* OCI. Un
+verificador v2 mira donde ya no está y concluye que no hay nada.
+
+Merece la pena por lo que enseña sobre verificar: un "no" de una herramienta de seguridad no
+siempre significa que el control falle — a veces significa que estás preguntando mal. Y la
+consecuencia práctica es concreta: **la versión del verificador es parte de la cadena de
+confianza**, no un detalle del entorno de quien comprueba.
 
 ---
 
