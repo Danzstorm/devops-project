@@ -1,0 +1,35 @@
+# Todo lo que este aqui NO se envia al daemon de Docker al construir.
+#
+# Importa por tres motivos:
+#   1. Velocidad: sin esto, .git y .venv (cientos de MB) viajan en cada build.
+#   2. Cache: un cambio en cualquier archivo enviado invalida capas. Si docs/
+#      viajara, editar un .md reconstruiria la imagen entera.
+#   3. Seguridad: .env con credenciales reales acabaria DENTRO de la imagen,
+#      y una imagen se publica en un registro.
+
+.git
+.gitignore
+.gitattributes
+.github
+
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+
+# Credenciales y base de datos local: jamas dentro de una imagen.
+.env
+*.db
+
+# Nada de esto se ejecuta en produccion.
+tests
+docs
+scripts
+k8s
+terraform
+observability
+*.md
+Dockerfile
+.dockerignore
+docker-compose.yml
