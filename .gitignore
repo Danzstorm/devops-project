@@ -1,0 +1,31 @@
+# --- Python / uv ---
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+# uv.lock SI se commitea: es lo que hace reproducible la instalacion.
+
+# --- Entorno local ---
+.env
+*.local
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl.bak
+
+# --- Kubernetes / secretos ---
+kubeconfig
+*.decrypted.yaml
+age.key
+
+# --- Editores / SO ---
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
