@@ -37,6 +37,12 @@ variable "host_port" {
   }
 }
 
+variable "cilium_version" {
+  description = "Version del chart de Cilium. Sustituye a kindnet, que acepta NetworkPolicy sin aplicarla."
+  type        = string
+  default     = "1.20.1"
+}
+
 variable "argocd_version" {
   description = "Version del chart de Argo CD. El chart 10.4.1 instala Argo CD v3.5.2."
   type        = string

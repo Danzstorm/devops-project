@@ -60,6 +60,21 @@ RUN apt-get update \
     && apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/*
 
+# Fase 8: quitar pip, setuptools y wheel de la imagen final.
+#
+# La aplicacion corre desde /app/.venv, que uv construyo sin pip dentro. Los que
+# quedaban venian de la imagen base y no los usa nadie en tiempo de ejecucion.
+#
+# Que aportan a un atacante que consiga ejecucion dentro del contenedor: una
+# forma comoda de descargar e instalar codigo arbitrario desde Internet. Sin
+# ellos hace falta traerse las herramientas, que es mas ruidoso y mas dificil.
+# Ademas dejan de aparecer en el inventario de paquetes que escanea Trivy: menos
+# CVEs que triar y que no afectaban a nada.
+RUN rm -rf /usr/local/lib/python3.12/site-packages/pip* \
+    /usr/local/lib/python3.12/site-packages/setuptools* \
+    /usr/local/lib/python3.12/site-packages/wheel* \
+    /usr/local/bin/pip*
+
 # Usuario sin privilegios. Por defecto un contenedor corre como root, y root
 # dentro del contenedor es (salvo user namespaces) root en el kernel del host:
 # una escapada del contenedor te deja con root en la maquina. Ademas, si un

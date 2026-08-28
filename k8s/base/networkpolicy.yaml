@@ -1,0 +1,103 @@
+# NetworkPolicy: cortafuegos entre pods.
+#
+# Por defecto, en Kubernetes **cualquier pod puede hablar con cualquier pod**,
+# de cualquier namespace. Un pod comprometido en otro proyecto del cluster puede
+# abrir una conexion a Postgres y probar contrasenas sin que nada se lo impida.
+#
+# El modelo es de lista blanca y funciona al reves de lo que parece: mientras no
+# exista NINGUNA policy que seleccione un pod, todo le esta permitido. En cuanto
+# una lo selecciona, pasa a denegarse todo lo que esa policy (y las demas que lo
+# seleccionen) no permita explicitamente.
+---
+# 1. Denegar por defecto TODO el trafico de entrada del namespace.
+#
+# podSelector vacio = todos los pods. Sin esta regla base, las de abajo no
+# servirian de nada: permitirian trafico que ya estaba permitido.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: denegar-entrada-por-defecto
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# 2. La API acepta trafico HTTP de donde sea.
+#
+# Es un servicio publico: el ingress abierto en el puerto 8000 es intencional.
+# Lo que se gana igualmente es que solo se abre ESE puerto.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: permitir-entrada-api
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: linkshort
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 8000
+          protocol: TCP
+---
+# 3. Postgres solo acepta conexiones de la API y del Job de migracion.
+#
+# Esta es la regla que de verdad importa. Sin ella, la base de datos es
+# alcanzable desde cualquier pod del cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: permitir-postgres-solo-desde-la-app
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # La API.
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: linkshort
+        # El Job de migracion, que lleva las labels que Kubernetes pone a los
+        # pods de un Job. Sin esta segunda entrada, la migracion no podria
+        # conectarse y el despliegue se quedaria bloqueado en la wave 0 --
+        # exactamente el tipo de fallo que se descubre en produccion.
+        - podSelector:
+            matchLabels:
+              batch.kubernetes.io/job-name: linkshort-migrate
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+# 4. Permitir DNS de salida.
+#
+# En cuanto se restringe el trafico de salida, hay que acordarse de DNS: sin el,
+# la app no puede ni resolver el nombre `postgres`, y el sintoma es un timeout
+# que parece un problema de base de datos y no de red.
+#
+# Aqui solo se declaran reglas de Ingress, asi que la salida sigue abierta y
+# esta regla es preventiva: el dia que se anada `policyTypes: [Egress]`, ya
+# esta escrita la excepcion que todo el mundo olvida.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: permitir-dns-de-salida
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Todo lo demas de salida, mientras no se cierre a proposito.
+    - {}

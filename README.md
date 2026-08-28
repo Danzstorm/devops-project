@@ -25,8 +25,8 @@ el proyecto.
 | 5 | IaC (Terraform) | ✅ | [docs/05-iac.md](docs/05-iac.md) |
 | 6 | CD con GitOps (Argo CD) | ✅ | [docs/06-gitops.md](docs/06-gitops.md) |
 | 7 | Observabilidad (Prometheus + Grafana) | ✅ | [docs/07-observabilidad.md](docs/07-observabilidad.md) |
-| 8 | Seguridad | 🔨 siguiente | — |
-| 9 | Nube (opcional) | ⏳ | — |
+| 8 | Seguridad | ✅ | [docs/08-seguridad.md](docs/08-seguridad.md) |
+| 9 | Nube (opcional) | 🔨 siguiente | — |
 
 ## Empezar
 
