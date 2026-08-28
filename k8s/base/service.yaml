@@ -10,6 +10,16 @@ apiVersion: v1
 kind: Service
 metadata:
   name: linkshort
+  labels:
+    # El ServiceMonitor selecciona SERVICES por label, no por nombre. Sin esta
+    # label el Service no casa con nada, Prometheus no descubre el destino y no
+    # hay error en ningun sitio: simplemente no aparecen metricas.
+    #
+    # Cuidado con confundirla con el `selector` de abajo, que es lo que enlaza el
+    # Service con sus PODS. Son dos relaciones distintas que usan la misma
+    # pareja clave/valor:
+    #   ServiceMonitor --(labels)--> Service --(selector)--> Pods
+    app.kubernetes.io/name: linkshort
 spec:
   type: ClusterIP # base no se expone al exterior; eso lo decide cada overlay
   selector:

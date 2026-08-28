@@ -43,6 +43,12 @@ variable "argocd_version" {
   default     = "10.4.1"
 }
 
+variable "kube_prometheus_stack_version" {
+  description = "Version del chart kube-prometheus-stack (Prometheus Operator, Prometheus y Grafana)."
+  type        = string
+  default     = "88.6.1"
+}
+
 variable "metrics_server_version" {
   description = "Version del chart de metrics-server. Fija, nunca la ultima."
   type        = string

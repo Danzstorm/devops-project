@@ -1,0 +1,27 @@
+# ServiceMonitor: le dice a Prometheus DONDE buscar metricas.
+#
+# El detalle que lo hace valioso es que no nombra pods ni IPs. Selecciona un
+# Service por labels, y Prometheus descubre solos los pods que hay detras. Un
+# despliegue nuevo cambia todas las IPs y aqui no se toca nada.
+#
+# Es la diferencia entre configurar monitorizacion y declararla: la alternativa
+# clasica es una lista de destinos en un prometheus.yml que alguien mantiene a
+# mano y que siempre esta desactualizada.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: linkshort
+  labels:
+    app.kubernetes.io/name: linkshort
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: linkshort
+  endpoints:
+    # Por NOMBRE de puerto, no por numero: es el mismo criterio que el
+    # targetPort del Service. Si el puerto cambia, se cambia en un solo sitio.
+    - port: http
+      path: /metrics
+      # 15s: suficiente para ver un incidente sin generar series a lo tonto.
+      # Cada scrape multiplica el numero de muestras almacenadas.
+      interval: 15s

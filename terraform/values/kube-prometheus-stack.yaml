@@ -1,0 +1,58 @@
+# Valores del chart kube-prometheus-stack.
+#
+# En un archivo y no en bloques `set` de Terraform: son suficientes valores como
+# para que la lista de `set` fuera ilegible, y asi se puede probar el chart a
+# mano con `helm install -f` sin pasar por Terraform.
+
+# --- Lo que se apaga, y por que ---------------------------------------------
+alertmanager:
+  # Sin destino de notificacion, Alertmanager solo acumula alertas en una
+  # interfaz que nadie mira. Una alerta que no despierta a nadie no es una
+  # alerta, es una fila en una tabla. Se enciende cuando haya un canal
+  # (Slack, PagerDuty) al que enviarlas.
+  enabled: false
+
+# --- Prometheus --------------------------------------------------------------
+prometheus:
+  prometheusSpec:
+    # POR DEFECTO Prometheus solo descubre los ServiceMonitor que llevan la
+    # label del release de Helm. Es decir: el ServiceMonitor de la aplicacion
+    # -- que vive en otro repositorio logico y lo despliega Argo CD -- seria
+    # ignorado en silencio. Sin error, sin aviso: simplemente no habria datos.
+    #
+    # Este es el fallo numero uno con este chart, y cuesta horas encontrarlo
+    # porque todo "funciona".
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+    # 2 dias en local. La retencion es la variable que decide cuanto disco come
+    # Prometheus, y en un portatil no hace falta mas.
+    retention: 2d
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+# --- Grafana -----------------------------------------------------------------
+grafana:
+  # Contrasena de desarrollo, visible a proposito, igual que devpassword en
+  # docker-compose y en el overlay de dev. Que cante si aparece fuera de local.
+  adminPassword: devpassword
+
+  # Descubre dashboards declarados como ConfigMap con la label
+  # grafana_dashboard=1. Asi un dashboard es un archivo versionado en el
+  # repositorio y no algo que alguien dibujo a mano y solo existe en su Grafana.
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
