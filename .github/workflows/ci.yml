@@ -42,6 +42,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # gitleaks necesita el historial completo: un secreto borrado en el
+          # ultimo commit sigue estando en los anteriores, y ahi es donde hay
+          # que buscarlo. Con el checkout superficial por defecto no veria nada.
+          fetch-depth: 0
+
+      # Fase 8: aqui la regla de la Fase 0 -- "ningun secreto en git" -- deja de
+      # ser un sistema de honor. Escanea TODO el historial, no solo el diff.
+      - name: Buscar secretos en el historial
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # astral-sh/setup-uv no publica tag mayor flotante (@v10 no existe), asi
       # que aqui va la version exacta. Es lo que hacen el resto de actions con
@@ -101,6 +113,10 @@ jobs:
     permissions:
       contents: read
       packages: write # solo este job publica en GHCR
+      # Necesario para la firma keyless: cosign presenta este token OIDC a
+      # Fulcio para obtener un certificado efimero. Es lo que permite firmar sin
+      # que exista ninguna clave privada guardada en ningun sitio.
+      id-token: write
     steps:
       - uses: actions/checkout@v7
 
@@ -188,6 +204,25 @@ jobs:
 
       # Publicar solo desde main. Una rama de trabajo no tiene por que dejar
       # imagenes en el registro: son ruido y ocupan espacio.
+      # SBOM: el inventario de todo lo que lleva la imagen dentro.
+      #
+      # Sirve para la pregunta que llega el dia de una CVE grave: "¿estamos
+      # afectados?". Sin SBOM, la respuesta pasa por reconstruir imagenes viejas
+      # e inspeccionarlas. Con SBOM es una consulta sobre un archivo.
+      - name: Generar SBOM
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: linkshort:ci
+          format: cyclonedx
+          output: sbom.cdx.json
+
+      - name: Guardar el SBOM como artefacto
+        uses: actions/upload-artifact@v6
+        with:
+          name: sbom
+          path: sbom.cdx.json
+
       - name: Login en GHCR
         if: github.event_name == 'push'
         uses: docker/login-action@v4
@@ -204,3 +239,33 @@ jobs:
       - name: Publicar
         if: github.event_name == 'push'
         run: echo "${{ steps.meta.outputs.tags }}" | xargs -n1 docker push
+
+      # Firma keyless con Sigstore: no hay ninguna clave privada que guardar,
+      # rotar ni filtrar.
+      #
+      # cosign pide un certificado efimero a Fulcio presentando el token OIDC
+      # que GitHub emite para ESTE workflow, firma, y registra la firma en un log
+      # publico y append-only (Rekor). El certificado caduca en minutos.
+      #
+      # Lo que demuestra la firma no es "esto no tiene bugs", es algo mas util:
+      # esta imagen la construyo este repositorio, en este workflow, a partir de
+      # este commit. Sin eso, cualquiera con acceso de escritura al registro
+      # puede subir una imagen con el mismo tag y nadie lo nota.
+      - name: Instalar cosign
+        if: github.event_name == 'push'
+        uses: sigstore/cosign-installer@v4.1.2
+
+      - name: Firmar la imagen
+        if: github.event_name == 'push'
+        run: |
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}:sha-$(git rev-parse --short HEAD) 2>/dev/null || true)
+          if [ -z "$digest" ]; then
+            digest=$(docker buildx imagetools inspect ghcr.io/${{ github.repository }}:latest --format '{{json .Manifest.Digest}}' | tr -d '"')
+            digest="ghcr.io/${{ github.repository }}@${digest}"
+          fi
+          echo "firmando $digest"
+          # Se firma por DIGEST, nunca por tag: un tag se puede reapuntar a otra
+          # imagen y la firma dejaria de significar nada.
+          cosign sign --yes "$digest"
+        env:
+          COSIGN_EXPERIMENTAL: "1"

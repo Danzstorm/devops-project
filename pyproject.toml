@@ -34,8 +34,17 @@ exclude = ["docs"]
 [tool.ruff.lint]
 # E/F: errores y estilo base.  I: ordena los imports.
 # UP: moderniza sintaxis obsoleta.  B: bugs sutiles (bugbear).
-# Las reglas de seguridad ("S") se anaden en la Fase 8, cuando toque el tema.
-select = ["E", "F", "I", "UP", "B"]
+# S: seguridad (bandit). Anadida en la Fase 8, como se prometio en la Fase 1.
+#    Detecta cosas como random en vez de secrets, subprocess con shell=True,
+#    asserts usados como validacion, o binds a 0.0.0.0 sin querer.
+select = ["E", "F", "I", "UP", "B", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# S101: los tests USAN assert, es su forma de trabajar. La regla existe porque
+# un assert en codigo de produccion desaparece al ejecutar con -O, y una
+# validacion que se evapora segun como arranques el proceso es peor que no
+# tenerla. En un test no hay -O ni produccion.
+"tests/**" = ["S101"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

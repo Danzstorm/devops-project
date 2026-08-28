@@ -37,6 +37,12 @@ variable "host_port" {
   }
 }
 
+variable "calico_version" {
+  description = "Version del chart tigera-operator (Calico). Sustituye a kindnet, que no aplica NetworkPolicy."
+  type        = string
+  default     = "v3.32.1"
+}
+
 variable "argocd_version" {
   description = "Version del chart de Argo CD. El chart 10.4.1 instala Argo CD v3.5.2."
   type        = string

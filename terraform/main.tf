@@ -29,10 +29,6 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 3.2"
     }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 3.2"
-    }
   }
 
   # Backend local: el estado vive en terraform.tfstate, aqui al lado, y esta en
@@ -66,6 +62,19 @@ resource "kind_cluster" "linkshort" {
     kind        = "Cluster"
     api_version = "kind.x-k8s.io/v1alpha4"
 
+    networking {
+      # Fase 8: fuera kindnet, el CNI que trae kind de serie.
+      #
+      # kindnet NO implementa NetworkPolicy. Y no falla: acepta el recurso, lo
+      # guarda, `kubectl get networkpolicy` lo lista tan tranquilo... y no filtra
+      # absolutamente nada. Comprobado: con una policy de "denegar toda entrada"
+      # sobre Postgres, la aplicacion seguia respondiendo 200 en /ready.
+      #
+      # Es el peor fallo posible en seguridad: no una puerta abierta, sino una
+      # puerta que parece cerrada. Se cambia por Calico, que si las aplica.
+      disable_default_cni = true
+    }
+
     node {
       role = "control-plane"
 
@@ -96,6 +105,22 @@ provider "helm" {
   }
 }
 
+# Calico: el CNI que sustituye a kindnet.
+#
+# Va antes que todo lo demas por una razon fisica: sin CNI, ningun pod obtiene
+# IP y todo se queda en Pending. Por eso el resto de complementos declaran
+# depends_on contra este recurso -- es de los pocos sitios donde la dependencia
+# no se deduce sola de las referencias.
+resource "helm_release" "calico" {
+  name             = "calico"
+  repository       = "https://docs.tigera.io/calico/charts"
+  chart            = "tigera-operator"
+  version          = var.calico_version
+  namespace        = "tigera-operator"
+  create_namespace = true
+  timeout          = 600
+}
+
 # metrics-server: sin el, `kubectl top` no funciona y un HorizontalPodAutoscaler
 # no tiene de donde leer. Kubernetes no lo trae de serie.
 resource "helm_release" "metrics_server" {
@@ -117,6 +142,8 @@ resource "helm_release" "metrics_server" {
     name  = "args[0]"
     value = "--kubelet-insecure-tls"
   }]
+
+  depends_on = [helm_release.calico]
 }
 
 # Argo CD: la HERRAMIENTA es plataforma, asi que se instala aqui.
@@ -145,6 +172,8 @@ resource "helm_release" "argocd" {
     name  = "configs.params.server\\.insecure"
     value = "true"
   }]
+  depends_on = [helm_release.calico]
+
 }
 
 # Prometheus + Grafana + Prometheus Operator.
@@ -164,43 +193,14 @@ resource "helm_release" "kube_prometheus_stack" {
   values = [file("${path.module}/values/kube-prometheus-stack.yaml")]
 
   # Ojo con la frontera: aqui se instala Grafana (plataforma), NO se despliega
-  # la aplicacion. El unico recurso de Kubernetes que crea este directorio es el
-  # ConfigMap del dashboard, de abajo, y es porque el dashboard describe como se
-  # MIRA el sistema, no que se ejecuta en el.
+  # nada de la aplicacion -- ni siquiera su dashboard, que viaja con ella en
+  # k8s/base y lo recoge el sidecar de Grafana por su label.
 
   # El chart instala CRDs (ServiceMonitor, PrometheusRule...) y tarda en dejar
   # los webhooks listos. Sin margen, el primer apply falla de forma
   # intermitente, que es el peor tipo de fallo: se arregla reintentando y nadie
   # investiga por que.
   timeout = 600
-}
 
-provider "kubernetes" {
-  host                   = kind_cluster.linkshort.endpoint
-  cluster_ca_certificate = kind_cluster.linkshort.cluster_ca_certificate
-  client_certificate     = kind_cluster.linkshort.client_certificate
-  client_key             = kind_cluster.linkshort.client_key
-}
-
-# El dashboard como ConfigMap, no dibujado a mano en la interfaz.
-#
-# Un dashboard hecho clicando existe solo en esa Grafana: no se revisa en un PR,
-# no sobrevive a recrear el cluster y nadie sabe quien cambio ese umbral. Aqui
-# es un archivo JSON versionado; el sidecar de Grafana descubre cualquier
-# ConfigMap con la label grafana_dashboard=1 y lo carga solo.
-resource "kubernetes_config_map" "dashboard_linkshort" {
-  metadata {
-    name      = "grafana-dashboard-linkshort"
-    namespace = "monitoring"
-    labels = {
-      grafana_dashboard = "1"
-    }
-  }
-
-  data = {
-    "linkshort.json" = file("${path.module}/../observability/dashboards/linkshort.json")
-  }
-
-  # El namespace lo crea el chart, asi que este ConfigMap va despues.
-  depends_on = [helm_release.kube_prometheus_stack]
+  depends_on = [helm_release.calico]
 }

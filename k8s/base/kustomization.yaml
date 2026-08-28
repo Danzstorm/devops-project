@@ -15,6 +15,7 @@ resources:
   - service.yaml
   - migrate-job.yaml
   - servicemonitor.yaml
+  - networkpolicy.yaml
 
 # configMapGenerator y no un ConfigMap suelto por una razon concreta: kustomize
 # le anade un sufijo con el hash del contenido (linkshort-config-7d2fk9...) y
@@ -26,6 +27,25 @@ resources:
 # alguien los reinicia a mano. Es de los fallos mas desconcertantes de
 # Kubernetes, porque `kubectl get configmap` muestra el valor nuevo.
 configMapGenerator:
+  # El dashboard de Grafana viaja CON la aplicacion, no con la plataforma.
+  #
+  # El sidecar de Grafana busca ConfigMaps con la label grafana_dashboard=1 en
+  # todos los namespaces, asi que da igual donde viva. Y conceptualmente encaja
+  # mejor aqui: el dashboard de un servicio describe ese servicio, cambia cuando
+  # cambian sus metricas, y lo revisa quien lo mantiene.
+  #
+  # Ademas evita un problema real de Terraform: configurar el provider
+  # kubernetes con atributos de un cluster que se crea en el mismo `apply` deja
+  # al provider sin host durante el plan, y falla contra localhost.
+  - name: linkshort-dashboard
+    files:
+      - dashboard.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+      annotations:
+        argocd.argoproj.io/sync-wave: "-2"
+
   - name: linkshort-config
     literals:
       - APP_NAME=linkshort
