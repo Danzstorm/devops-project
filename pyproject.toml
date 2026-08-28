@@ -27,6 +27,9 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# ruff format tambien formatea los bloques ```python de los .md, y los ejemplos
+# de docs/ estan mal escritos A PROPOSITO (muestran el error, no la solucion).
+exclude = ["docs"]
 
 [tool.ruff.lint]
 # E/F: errores y estilo base.  I: ordena los imports.
