@@ -29,3 +29,6 @@ age.key
 .idea/
 Thumbs.db
 desktop.ini
+
+# Base de datos local de desarrollo (SQLite)
+*.db

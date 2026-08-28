@@ -1,0 +1,39 @@
+[project]
+name = "linkshort"
+version = "0.1.0"
+description = "Acortador de URLs - proyecto DevOps end-to-end"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.19.1",
+    "fastapi>=0.141.1",
+    "prometheus-fastapi-instrumentator>=8.1.0",
+    "psycopg[binary]>=3.3.4",
+    "pydantic-settings>=2.15.0",
+    "sqlalchemy>=2.0.52",
+    "uvicorn[standard]>=0.52.4",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.12.0",
+    "pytest>=9.1.1",
+    "ruff>=0.16.5",
+]
+
+# --- Herramientas ---
+# Todo en pyproject.toml a proposito: una sola fuente de configuracion en vez
+# de un setup.cfg, un .flake8, un pytest.ini y un .isort.cfg peleandose.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/F: errores y estilo base.  I: ordena los imports.
+# UP: moderniza sintaxis obsoleta.  B: bugs sutiles (bugbear).
+# Las reglas de seguridad ("S") se anaden en la Fase 8, cuando toque el tema.
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
