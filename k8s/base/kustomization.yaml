@@ -1,0 +1,32 @@
+# Base: la forma de la aplicacion, sin decisiones de entorno.
+#
+# Aqui no hay replicas de produccion, ni el tag de la imagen, ni la contrasena
+# de nadie. Todo eso lo pone cada overlay. La prueba de que la separacion esta
+# bien hecha es esta: `kubectl apply -k k8s/base` NO deberia usarse nunca
+# directamente -- base no describe ningun entorno real, describe el patron.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: linkshort
+
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+  - migrate-job.yaml
+
+# configMapGenerator y no un ConfigMap suelto por una razon concreta: kustomize
+# le anade un sufijo con el hash del contenido (linkshort-config-7d2fk9...) y
+# actualiza las referencias. Cambiar un valor cambia el nombre, y cambiar el
+# nombre modifica el pod template, lo que dispara un rolling update.
+#
+# Con un ConfigMap normal no pasa nada de eso: editas el valor, kubectl lo
+# aplica, y los pods siguen corriendo con la configuracion vieja hasta que
+# alguien los reinicia a mano. Es de los fallos mas desconcertantes de
+# Kubernetes, porque `kubectl get configmap` muestra el valor nuevo.
+configMapGenerator:
+  - name: linkshort-config
+    literals:
+      - APP_NAME=linkshort
+      - LOG_LEVEL=INFO
+      - BASE_URL=http://localhost:8000

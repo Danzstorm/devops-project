@@ -1,0 +1,10 @@
+# Un namespace propio, no `default`.
+#
+# No es orden por gusto: el namespace es la unidad de casi todo lo que viene
+# despues -- cuotas de recursos, NetworkPolicies, RBAC y el borrado en cascada.
+# `kubectl delete namespace linkshort` se lleva todo lo de este proyecto y nada
+# mas, que en un cluster compartido es la diferencia entre limpiar y romper.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: linkshort

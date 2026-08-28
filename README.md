@@ -21,8 +21,8 @@ el proyecto.
 | 1 | La aplicación (FastAPI + Postgres) | ✅ | [docs/01-app.md](docs/01-app.md) |
 | 2 | Contenedores (Docker) | ✅ | [docs/02-contenedores.md](docs/02-contenedores.md) |
 | 3 | CI (GitHub Actions) | ✅ | [docs/03-ci.md](docs/03-ci.md) |
-| 4 | Kubernetes local (kind) | 🔨 siguiente | — |
-| 5 | IaC (Terraform) | ⏳ | — |
+| 4 | Kubernetes local (kind) | ✅ | [docs/04-kubernetes.md](docs/04-kubernetes.md) |
+| 5 | IaC (Terraform) | 🔨 siguiente | — |
 | 6 | CD con GitOps (Argo CD) | ⏳ | — |
 | 7 | Observabilidad (Prometheus + Grafana) | ⏳ | — |
 | 8 | Seguridad | ⏳ | — |
@@ -42,6 +42,14 @@ O el entorno completo con Postgres, sin instalar nada de Python:
 ```powershell
 docker compose up --build   # http://localhost:8000/docs
 docker compose down -v      # -v borra tambien el volumen de datos
+```
+
+O en un cluster de Kubernetes de verdad:
+
+```powershell
+kind create cluster --config k8s/kind-cluster.yaml
+kubectl apply -k k8s/overlays/dev          # http://localhost:8000/docs
+kind delete cluster --name linkshort
 ```
 
 ## Reglas del proyecto

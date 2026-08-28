@@ -1,0 +1,21 @@
+# Service: un nombre y una IP estables por delante de pods que van y vienen.
+#
+# Los pods son ganado: cada despliegue les cambia la IP. Nada deberia hablar
+# con la IP de un pod, y por eso ningun manifiesto de este repo lo hace.
+#
+# El Service solo enruta a los pods cuyo readinessProbe esta en verde. Es la
+# otra mitad de la decision de la Fase 1: /ready no es informativo, es lo que
+# decide si te llega trafico.
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkshort
+spec:
+  type: ClusterIP # base no se expone al exterior; eso lo decide cada overlay
+  selector:
+    app.kubernetes.io/name: linkshort
+  ports:
+    - name: http
+      port: 80
+      targetPort: http # por nombre, no por numero: si el puerto del contenedor
+        # cambia, se cambia en un sitio y no en dos
