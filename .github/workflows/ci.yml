@@ -76,6 +76,22 @@ jobs:
       - name: Validar manifiestos de Kubernetes
         run: kubectl kustomize k8s/overlays/dev > /dev/null
 
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.15.8"
+
+      - name: Formato de Terraform
+        run: terraform -chdir=terraform fmt -check -recursive
+
+      # -backend=false descarga los providers pero no toca el estado: valida la
+      # sintaxis y las referencias sin necesitar credenciales ni un cluster.
+      # `validate` no habla con ningun proveedor, asi que no crea ni consulta
+      # nada -- es el equivalente de `ruff check` para la infraestructura.
+      - name: Validar Terraform
+        run: |
+          terraform -chdir=terraform init -backend=false -input=false
+          terraform -chdir=terraform validate
+
   # ===========================================================================
   # imagen - build, escaneo, prueba end-to-end y publicacion
   # ===========================================================================

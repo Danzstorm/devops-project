@@ -32,3 +32,9 @@ desktop.ini
 
 # Base de datos local de desarrollo (SQLite)
 *.db
+
+# El provider tehcyx/kind escribe el kubeconfig del cluster aqui, con nombre
+# <cluster>-config. Lleva client-key-data: la CLAVE PRIVADA del cliente, en
+# claro. Que una herramienta genere un secreto como efecto secundario, dentro
+# del repositorio y sin avisar, es justo como se filtran.
+terraform/*-config

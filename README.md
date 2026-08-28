@@ -22,8 +22,8 @@ el proyecto.
 | 2 | Contenedores (Docker) | ✅ | [docs/02-contenedores.md](docs/02-contenedores.md) |
 | 3 | CI (GitHub Actions) | ✅ | [docs/03-ci.md](docs/03-ci.md) |
 | 4 | Kubernetes local (kind) | ✅ | [docs/04-kubernetes.md](docs/04-kubernetes.md) |
-| 5 | IaC (Terraform) | 🔨 siguiente | — |
-| 6 | CD con GitOps (Argo CD) | ⏳ | — |
+| 5 | IaC (Terraform) | ✅ | [docs/05-iac.md](docs/05-iac.md) |
+| 6 | CD con GitOps (Argo CD) | 🔨 siguiente | — |
 | 7 | Observabilidad (Prometheus + Grafana) | ⏳ | — |
 | 8 | Seguridad | ⏳ | — |
 | 9 | Nube (opcional) | ⏳ | — |
@@ -44,12 +44,13 @@ docker compose up --build   # http://localhost:8000/docs
 docker compose down -v      # -v borra tambien el volumen de datos
 ```
 
-O en un cluster de Kubernetes de verdad:
+O en un cluster de Kubernetes de verdad, creado con Terraform:
 
 ```powershell
-kind create cluster --config k8s/kind-cluster.yaml
+terraform -chdir=terraform init
+terraform -chdir=terraform apply           # cluster + complementos
 kubectl apply -k k8s/overlays/dev          # http://localhost:8000/docs
-kind delete cluster --name linkshort
+terraform -chdir=terraform destroy         # se lo lleva todo
 ```
 
 ## Reglas del proyecto

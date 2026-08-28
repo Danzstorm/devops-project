@@ -1,7 +1,13 @@
 # Fase 4 — Kubernetes local con kind
 
 > **Estado:** completada
-> **Archivos:** `k8s/kind-cluster.yaml`, `k8s/base/`, `k8s/overlays/dev/`
+> **Archivos:** `k8s/base/`, `k8s/overlays/dev/`
+>
+> **Nota de la Fase 5:** el cluster se creaba aquí con `k8s/kind-cluster.yaml`.
+> Ese archivo ya no existe: ahora lo crea Terraform (`terraform/main.tf`), para que
+> haya una sola forma de crearlo. Dos fuentes de verdad son deriva garantizada.
+> Donde abajo se lea `kind create cluster --config ...`, hoy es
+> `terraform -chdir=terraform apply`.
 
 ---
 
@@ -27,7 +33,7 @@ Y es donde `/health` y `/ready` dejan de ser dos endpoints parecidos.
 ## 2. El cluster también es código
 
 ```bash
-kind create cluster --config k8s/kind-cluster.yaml
+terraform -chdir=terraform apply     # antes: kind create cluster --config ...
 ```
 
 `kind create cluster` a secas funciona, pero entonces la topología vive en la memoria de
@@ -318,7 +324,7 @@ atrás, desplegadas antes que el código que las usa— es una disciplina, no un
 ## 10. Verificación
 
 ```powershell
-kind create cluster --config k8s/kind-cluster.yaml
+terraform -chdir=terraform apply     # antes: kind create cluster --config ...
 kubectl apply -k k8s/overlays/dev
 kubectl -n linkshort rollout status deploy/linkshort
 kubectl -n linkshort wait --for=condition=complete job/linkshort-migrate --timeout=120s
@@ -351,7 +357,7 @@ kubectl -n linkshort exec deploy/linkshort -- touch /usr/local/x # Read-only fil
 Limpiar del todo:
 
 ```powershell
-kind delete cluster --name linkshort
+terraform -chdir=terraform destroy
 ```
 
 ---
