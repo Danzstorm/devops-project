@@ -1,0 +1,81 @@
+# Entorno de desarrollo completo: base de datos, migraciones y API.
+#
+# Cada variable lleva un default de DESARROLLO con la sintaxis ${VAR:-valor},
+# asi que esto arranca sin configurar nada. Si existe un .env, Compose lo lee
+# y sus valores ganan. Ninguno de estos defaults es valido fuera de local:
+# 'devpassword' esta ahi precisamente para que cante si alguien la ve en un
+# entorno real.
+# Levantar todo:   docker compose up --build
+# Tirarlo todo:    docker compose down -v      (-v borra tambien el volumen)
+
+services:
+  # ---------------------------------------------------------------------------
+  # db - Postgres 17
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-linkshort}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-linkshort}
+    # El healthcheck no es decoracion: es lo que hace que `depends_on` de abajo
+    # signifique "cuando la base ACEPTE CONEXIONES" y no "cuando el contenedor
+    # haya arrancado". Postgres tarda unos segundos en estar listo despues de
+    # arrancar, y ese hueco es donde fallan las migraciones.
+    # El $$ escapa el $ para que lo expanda el shell del contenedor, no Compose.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    volumes:
+      # Volumen con nombre: los datos sobreviven a `docker compose down`.
+      # Sin esto, cada reinicio empieza con la base vacia.
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Expuesto solo para poder inspeccionar con un cliente desde el host.
+      - "5432:5432"
+
+  # ---------------------------------------------------------------------------
+  # migrate - contenedor de un solo uso: aplica las migraciones y termina
+  # ---------------------------------------------------------------------------
+  # Es un servicio aparte a proposito, no un paso dentro del arranque de la API.
+  # Con varias replicas, migrar dentro de la app significa varios procesos
+  # tocando el esquema a la vez. Este contenedor es el equivalente exacto del
+  # Job de Kubernetes que montaremos en la Fase 4: misma imagen, otro comando.
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-linkshort}:${POSTGRES_PASSWORD:-devpassword}@db:5432/${POSTGRES_DB:-linkshort}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # api
+  # ---------------------------------------------------------------------------
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Ojo al host: `db`, no `localhost`. Dentro de la red de Compose cada
+      # servicio resuelve por su nombre. `localhost` seria el propio contenedor
+      # de la API, donde no hay ningun Postgres escuchando.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-linkshort}:${POSTGRES_PASSWORD:-devpassword}@db:5432/${POSTGRES_DB:-linkshort}
+      BASE_URL: ${BASE_URL:-http://localhost:8000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      db:
+        condition: service_healthy
+      # La API no arranca hasta que las migraciones hayan terminado BIEN.
+      # Si la migracion falla, la API ni se levanta: mejor no arrancar que
+      # arrancar contra un esquema a medias.
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:

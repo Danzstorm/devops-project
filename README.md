@@ -17,8 +17,8 @@ el proyecto.
 |---|------|--------|-----|
 | 0 | Setup y fundamentos | ✅ | [docs/00-setup.md](docs/00-setup.md) |
 | 1 | La aplicación (FastAPI + Postgres) | ✅ | [docs/01-app.md](docs/01-app.md) |
-| 2 | Contenedores (Docker) | 🔨 siguiente | — |
-| 3 | CI (GitHub Actions) | ⏳ | — |
+| 2 | Contenedores (Docker) | ✅ | [docs/02-contenedores.md](docs/02-contenedores.md) |
+| 3 | CI (GitHub Actions) | 🔨 siguiente | — |
 | 4 | Kubernetes local (kind) | ⏳ | — |
 | 5 | IaC (Terraform) | ⏳ | — |
 | 6 | CD con GitOps (Argo CD) | ⏳ | — |
@@ -33,6 +33,13 @@ el proyecto.
 uv sync                     # instala dependencias exactas desde uv.lock
 uv run pytest               # 8 tests
 uv run uvicorn app.main:app # http://localhost:8000/docs
+```
+
+O el entorno completo con Postgres, sin instalar nada de Python:
+
+```powershell
+docker compose up --build   # http://localhost:8000/docs
+docker compose down -v      # -v borra tambien el volumen de datos
 ```
 
 ## Reglas del proyecto
