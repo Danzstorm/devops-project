@@ -5,22 +5,25 @@
 # replicas serian 2 procesos aplicando el mismo esquema a la vez. Alembic toma
 # un lock, asi que no corrompe nada, pero el segundo pod se queda esperando y
 # el despliegue se vuelve lento y confuso. Un Job es un actor unico y explicito.
-#
-# ponytail: el Job tiene nombre fijo y spec.template es INMUTABLE. Al desplegar
-# una imagen nueva, `kubectl apply` falla con "field is immutable" y hay que
-# borrarlo antes:
-#
-#   kubectl -n linkshort delete job linkshort-migrate --ignore-not-found
-#   kubectl apply -k k8s/overlays/dev
-#
-# Se deja asi porque en la Fase 6 el problema desaparece: Argo CD ejecuta las
-# migraciones como un hook PreSync, que genera un Job nuevo por sincronizacion.
-# Inventar ahora un generador de nombres seria construir a mano lo que la
-# herramienta de la fase siguiente ya trae.
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: linkshort-migrate
+  annotations:
+    # Fase 6: aqui se salda la deuda que dejo la Fase 4.
+    #
+    # PreSync -> Argo CD ejecuta este Job ANTES de sincronizar el resto, y espera
+    # a que termine bien. Si la migracion falla, la sincronizacion se detiene y
+    # la version nueva de la app no llega a desplegarse. Eso es una garantia que
+    # `kubectl apply -k` no daba: alli el Job y el Deployment se creaban a la vez
+    # y el orden dependia de la suerte.
+    argocd.argoproj.io/hook: PreSync
+    # BeforeHookCreation -> borra el Job anterior antes de crear el nuevo.
+    #
+    # Es exactamente el arreglo del "field is immutable" de la Fase 4: spec.template
+    # de un Job no se puede modificar, asi que al cambiar de imagen habia que
+    # borrarlo a mano. Argo CD lo hace por su cuenta en cada sincronizacion.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   # Se autodestruye 5 minutos despues de terminar. Sin esto, los Jobs completados
   # se acumulan en el namespace para siempre.
