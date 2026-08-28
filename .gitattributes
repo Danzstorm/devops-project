@@ -1,0 +1,16 @@
+# Normaliza finales de linea. Sin esto, en Windows git convierte a CRLF al
+# checkout y un .sh con CRLF dentro de un contenedor Linux falla con
+# "bad interpreter: No such file or directory" -- un error que no dice
+# absolutamente nada sobre su causa real.
+
+* text=auto eol=lf
+
+# Estos SI deben quedarse en CRLF: son de Windows.
+*.ps1  text eol=crlf
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+
+# Binarios: que git no los toque.
+*.png  binary
+*.jpg  binary
+*.ico  binary
